@@ -6,7 +6,6 @@ import FloatingHearts from './FloatingHearts';
 import HeartEffect from "./HeartEffect";
 import LoveMessage from "./LoveMessage";
 import SurpriseButton from "./SurpriseButton";
-import HeartCanvas from './HeartParticles';
 
 export default function App() {
   const audioRef = useRef(null);
@@ -28,7 +27,6 @@ export default function App() {
       <HeartEffect />
       {/* <BalloonEffect /> */}
       <FireworkEffect />
-      <HeartCanvas />
       <LoveMessage />
       <FloatingHearts/>
     </div>
