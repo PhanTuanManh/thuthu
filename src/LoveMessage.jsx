@@ -90,7 +90,7 @@ const LoveMessage = () => {
       </div>
 
       <motion.img 
-        src="../public/Screenshot 2025-03-07 230710.png"
+        src="/Screenshot 2025-03-07 230710.png"
         className="mt-6 w-[200px] h-[254px]"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
