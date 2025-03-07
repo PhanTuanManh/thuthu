@@ -131,8 +131,9 @@ class ParticlePool {
   }
 }
 
-// Dùng hàm bézier mô phỏng hình trái tim "realistic" con người
+// Vẽ hình trái tim "realistic" bằng bézier curves
 function createRealisticHeartImage() {
+  // Tạo canvas offscreen với kích thước đủ lớn để hiển thị chi tiết
   const size = settings.particles.size * 5
   const offscreen = document.createElement('canvas')
   offscreen.width = size
@@ -140,21 +141,21 @@ function createRealisticHeartImage() {
   const ctx = offscreen.getContext('2d')
 
   ctx.beginPath()
-  // Vẽ trái tim với bézier curves
-  ctx.moveTo(size * 0.5, size * 0.25)
+  // Vẽ hình trái tim bằng đường bézier (giả lập trái tim con người)
+  ctx.moveTo(size * 0.5, size * 0.25)           // Điểm trên cùng giữa
   ctx.bezierCurveTo(size * 0.2, 0, 0, size * 0.4, size * 0.5, size * 0.85)
   ctx.bezierCurveTo(size, size * 0.4, size * 0.8, 0, size * 0.5, size * 0.25)
   ctx.closePath()
 
-  // Gradient tạo chiều sâu màu sắc
-  const grad = ctx.createLinearGradient(0, 0, 0, size)
-  grad.addColorStop(0, "#d10000")
-  grad.addColorStop(0.5, "#ff0000")
-  grad.addColorStop(1, "#8b0000")
+  // Tạo gradient để tạo chiều sâu cho trái tim
+  let grad = ctx.createLinearGradient(0, 0, 0, size)
+  grad.addColorStop(0, "#d10000")  // đỏ tối
+  grad.addColorStop(0.5, "#ff0000") // đỏ sáng
+  grad.addColorStop(1, "#8b0000")  // đỏ đậm
   ctx.fillStyle = grad
   ctx.fill()
 
-  // Thêm hiệu ứng outline mờ và shadow tạo cảm giác 3D
+  // Thêm outline mịn và shadow để tạo hiệu ứng 3D
   ctx.shadowColor = "rgba(0,0,0,0.3)"
   ctx.shadowBlur = 10
   ctx.shadowOffsetX = 3
@@ -168,15 +169,34 @@ function createRealisticHeartImage() {
   return image
 }
 
-// Hàm phát sinh vị trí particle bên trong vùng trái tim (dùng ellipse xấp xỉ vùng trái tim)
+// Spawn particle trong vùng gần hình trái tim (giả lập vùng hình trái tim)
 function spawnHeartParticlePosition(width, height) {
+  // Sử dụng ellipse xấp xỉ hình trái tim
   const heartWidth = 300
   const heartHeight = 450
   const angle = Math.random() * 2 * Math.PI
-  const r = Math.sqrt(Math.random())
+  const r = Math.sqrt(Math.random())  // phân bố lệch về trung tâm
   const xOffset = r * (heartWidth / 2) * Math.cos(angle)
   const yOffset = r * (heartHeight / 2) * Math.sin(angle)
   return { x: width / 2 + xOffset, y: height / 2 + yOffset }
+}
+
+// Vẽ outline của trái tim realistic bằng bézier curves
+function drawRealisticHeartOutline(ctx, centerX, centerY, beat, size) {
+  ctx.save()
+  ctx.translate(centerX, centerY)
+  ctx.scale(beat, beat)
+  ctx.beginPath()
+  const w = size
+  const h = size * 1.5
+  ctx.moveTo(w * 0.5, h * 0.25)
+  ctx.bezierCurveTo(w * 0.2, 0, 0, h * 0.4, w * 0.5, h * 0.85)
+  ctx.bezierCurveTo(w, h * 0.4, w * 0.8, 0, w * 0.5, h * 0.25)
+  ctx.closePath()
+  ctx.lineWidth = 3
+  ctx.strokeStyle = 'rgba(255,182,193,0.7)'
+  ctx.stroke()
+  ctx.restore()
 }
 
 const HeartCanvas = () => {
@@ -208,7 +228,7 @@ const HeartCanvas = () => {
       const deltaTime = time ? newTime - time : 0
       time = newTime
 
-      // Vẽ nền với gradient radial tạo không gian sâu
+      // Vẽ nền gradient tạo không gian sâu
       const bgGrad = context.createRadialGradient(
         width / 2,
         height / 2,
@@ -222,13 +242,13 @@ const HeartCanvas = () => {
       context.fillStyle = bgGrad
       context.fillRect(0, 0, width, height)
 
-      // Hiệu ứng nhịp đập: thay đổi scale theo sin
+      // Hiệu ứng nhịp đập: scale theo sin
       const beat =
         1 +
         settings.heart.beatScale *
           Math.sin((2 * Math.PI * (newTime - beatStart)) / settings.heart.beatPeriod)
 
-      // Sinh particle bên trong vùng trái tim, giới hạn tối đa 100 particle/frame
+      // Sinh particle: sử dụng spawn trong vùng trái tim, giới hạn max 100 particle/frame
       const spawnCount = Math.min(particleRate * deltaTime, 100)
       for (let i = 0; i < spawnCount; i++) {
         const pos = spawnHeartParticlePosition(width, height)
@@ -250,7 +270,7 @@ const HeartCanvas = () => {
 
       pool.update(deltaTime)
 
-      // Vẽ particle với blending additive và hiệu ứng glow mượt
+      // Vẽ particle với blending additive và hiệu ứng glow
       context.globalCompositeOperation = 'lighter'
       context.shadowBlur = 8
       context.shadowColor = '#ffb6c1'
@@ -259,7 +279,25 @@ const HeartCanvas = () => {
       context.shadowColor = 'transparent'
       context.globalCompositeOperation = 'source-over'
 
-      // Không còn vẽ outline trái tim nữa – chỉ giữ lại hiệu ứng đằng sau
+      // Vẽ outline trái tim realistic với hiệu ứng 3D:
+      // Vẽ lớp shadow lệch để tạo độ sâu
+      context.save()
+      context.translate(width / 2 + 10, height / 2 + 10)
+      const beatShadow = beat * 0.98
+      context.scale(beatShadow, beatShadow)
+      context.beginPath()
+      const outlineSize = 300
+      context.moveTo(outlineSize * 0.5, outlineSize * 0.25)
+      context.bezierCurveTo(outlineSize * 0.2, 0, 0, outlineSize * 0.4, outlineSize * 0.5, outlineSize * 0.85)
+      context.bezierCurveTo(outlineSize, outlineSize * 0.4, outlineSize * 0.8, 0, outlineSize * 0.5, outlineSize * 0.25)
+      context.closePath()
+      context.lineWidth = 5
+      context.strokeStyle = 'rgba(0,0,0,0.5)'
+      context.stroke()
+      context.restore()
+
+      // Vẽ outline chính của trái tim realistic
+      drawRealisticHeartOutline(context, width / 2, height / 2, beat, 300)
     }
 
     render()

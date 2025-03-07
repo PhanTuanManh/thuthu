@@ -67,7 +67,7 @@ const LoveMessage = () => {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 1 }}
       >
-       Chúc Mừng Ngày Phụ Nữ Việt Nam!
+       Chúc Mừng Ngày Của Em!
       </motion.h1>
       <div className="flex items-center gap-3 mt-5 cursor-pointer relative" onClick={changeMessage}>
         <motion.p 
@@ -90,7 +90,7 @@ const LoveMessage = () => {
       </div>
 
       <motion.img 
-        src="/Screenshot 2025-03-07 230710.png"
+        src="/hoa.png"
         className="mt-6 w-[200px] h-[254px]"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
