@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        pacifico: ['Pacifico', 'cursive'],
+      },
       keyframes: {
         glow: {
           '0%, 100%': { filter: 'drop-shadow(0 0 4px rgba(255,0,0,0.8))' },

@@ -2,11 +2,11 @@ import React, { useRef, useEffect } from 'react'
 
 const settings = {
   particles: {
-    length: 15000,    // Số lượng particle tối đa tạo vũ trụ trái tim
+    length: 144,      // Số lượng particle tối đa
     duration: 4,      // Thời gian tồn tại của mỗi particle (giây)
     velocity: 80,     // Tốc độ particle (pixel/giây)
     effect: -1.3,     // Hệ số gia tốc tạo hiệu ứng
-    size: 9,          // Kích thước particle cơ bản (dùng để tạo ảnh trái tim)
+    size: 9,          // Kích thước particle cơ bản (dùng làm mẫu)
   },
   heart: {
     beatPeriod: 1.2,  // Chu kỳ nhịp đập (giây)
@@ -61,7 +61,6 @@ class Particle {
     this.age += deltaTime
   }
   draw(context, image, extraScale = 1) {
-    // Hàm easing để tạo hiệu ứng mượt khi particle phai biến mất
     const ease = (t) => (--t) * t * t + 1
     const t = this.age / settings.particles.duration
     const size = image.width * ease(t) * extraScale
@@ -132,53 +131,52 @@ class ParticlePool {
   }
 }
 
-function pointOnHeart(t) {
-  // Nhân hệ số để làm trái tim to hơn
-  const scale = 1.2
-  return new Point(
-    160 * Math.pow(Math.sin(t), 3) * scale,
-    (130 * Math.cos(t) - 50 * Math.cos(2 * t) - 20 * Math.cos(3 * t) - 10 * Math.cos(4 * t) + 25) * scale
-  )
-}
-
-function createHeartImage() {
-  const size = settings.particles.size
+// Dùng hàm bézier mô phỏng hình trái tim "realistic" con người
+function createRealisticHeartImage() {
+  const size = settings.particles.size * 5
   const offscreen = document.createElement('canvas')
   offscreen.width = size
   offscreen.height = size
   const ctx = offscreen.getContext('2d')
+
   ctx.beginPath()
-  const to = (t) => {
-    const p = pointOnHeart(t)
-    p.x = size / 2 + (p.x * size) / 350
-    p.y = size / 2 - (p.y * size) / 350
-    return p
-  }
-  let t = -Math.PI
-  let p = to(t)
-  ctx.moveTo(p.x, p.y)
-  while (t < Math.PI) {
-    t += 0.01
-    p = to(t)
-    ctx.lineTo(p.x, p.y)
-  }
+  // Vẽ trái tim với bézier curves
+  ctx.moveTo(size * 0.5, size * 0.25)
+  ctx.bezierCurveTo(size * 0.2, 0, 0, size * 0.4, size * 0.5, size * 0.85)
+  ctx.bezierCurveTo(size, size * 0.4, size * 0.8, 0, size * 0.5, size * 0.25)
   ctx.closePath()
-  // Sử dụng gradient radial với màu hồng nhẹ
-  const grad = ctx.createRadialGradient(
-    size / 2,
-    size / 2,
-    size / 8,
-    size / 2,
-    size / 2,
-    size / 2
-  )
-  grad.addColorStop(0, '#ffb6c1')  // light pink
-  grad.addColorStop(1, '#ff69b4')  // hot pink nhẹ
+
+  // Gradient tạo chiều sâu màu sắc
+  const grad = ctx.createLinearGradient(0, 0, 0, size)
+  grad.addColorStop(0, "#d10000")
+  grad.addColorStop(0.5, "#ff0000")
+  grad.addColorStop(1, "#8b0000")
   ctx.fillStyle = grad
   ctx.fill()
+
+  // Thêm hiệu ứng outline mờ và shadow tạo cảm giác 3D
+  ctx.shadowColor = "rgba(0,0,0,0.3)"
+  ctx.shadowBlur = 10
+  ctx.shadowOffsetX = 3
+  ctx.shadowOffsetY = 3
+  ctx.strokeStyle = "#800000"
+  ctx.lineWidth = 2
+  ctx.stroke()
+
   const image = new Image()
   image.src = offscreen.toDataURL()
   return image
+}
+
+// Hàm phát sinh vị trí particle bên trong vùng trái tim (dùng ellipse xấp xỉ vùng trái tim)
+function spawnHeartParticlePosition(width, height) {
+  const heartWidth = 300
+  const heartHeight = 450
+  const angle = Math.random() * 2 * Math.PI
+  const r = Math.sqrt(Math.random())
+  const xOffset = r * (heartWidth / 2) * Math.cos(angle)
+  const yOffset = r * (heartHeight / 2) * Math.sin(angle)
+  return { x: width / 2 + xOffset, y: height / 2 + yOffset }
 }
 
 const HeartCanvas = () => {
@@ -193,7 +191,7 @@ const HeartCanvas = () => {
 
     const pool = new ParticlePool(settings.particles.length)
     const particleRate = settings.particles.length / settings.particles.duration
-    const heartImage = createHeartImage()
+    const heartImage = createRealisticHeartImage()
 
     const onResize = () => {
       canvas.width = canvas.clientWidth
@@ -210,7 +208,7 @@ const HeartCanvas = () => {
       const deltaTime = time ? newTime - time : 0
       time = newTime
 
-      // Vẽ nền với gradient động tạo không gian sâu
+      // Vẽ nền với gradient radial tạo không gian sâu
       const bgGrad = context.createRadialGradient(
         width / 2,
         height / 2,
@@ -224,40 +222,35 @@ const HeartCanvas = () => {
       context.fillStyle = bgGrad
       context.fillRect(0, 0, width, height)
 
-      // Hiệu ứng nhịp đập: scale theo sin để tạo chuyển động "đập"
+      // Hiệu ứng nhịp đập: thay đổi scale theo sin
       const beat =
         1 +
         settings.heart.beatScale *
           Math.sin((2 * Math.PI * (newTime - beatStart)) / settings.heart.beatPeriod)
 
-      // Sinh particle từ đường cong trái tim (áp dụng hiệu ứng nhịp đập)
-      const amount = particleRate * deltaTime
-      for (let i = 0; i < amount; i++) {
-        const t = Math.random() * 2 * Math.PI - Math.PI
-        const pos = pointOnHeart(t)
-        pos.x *= beat
-        pos.y *= beat
-        const spawnX = width / 2 + pos.x
-        const spawnY = height / 2 - pos.y
-        const dir = pos.clone().length(settings.particles.velocity)
-        pool.add(spawnX, spawnY, dir.x, -dir.y)
+      // Sinh particle bên trong vùng trái tim, giới hạn tối đa 100 particle/frame
+      const spawnCount = Math.min(particleRate * deltaTime, 100)
+      for (let i = 0; i < spawnCount; i++) {
+        const pos = spawnHeartParticlePosition(width, height)
+        const angle = Math.random() * 2 * Math.PI
+        const vx = Math.cos(angle) * settings.particles.velocity
+        const vy = Math.sin(angle) * settings.particles.velocity
+        pool.add(pos.x, pos.y, vx, vy)
       }
-
-      // Sinh thêm một số particle ngẫu nhiên (floating hearts) trên toàn màn hình
-      const randomCount = 2
+      // Sinh thêm vài particle ngẫu nhiên
+      const randomCount = 1
       for (let i = 0; i < randomCount; i++) {
         const spawnX = Math.random() * width
         const spawnY = Math.random() * height
         const angle = Math.random() * 2 * Math.PI
-        const velocityMagnitude = Math.random() * 20 + 10
-        const vx = Math.cos(angle) * velocityMagnitude
-        const vy = Math.sin(angle) * velocityMagnitude
+        const vx = Math.cos(angle) * (Math.random() * 20 + 10)
+        const vy = Math.sin(angle) * (Math.random() * 20 + 10)
         pool.add(spawnX, spawnY, vx, vy)
       }
 
       pool.update(deltaTime)
 
-      // Dùng chế độ blending additive và thêm shadowBlur để tạo hiệu ứng glow mượt mà
+      // Vẽ particle với blending additive và hiệu ứng glow mượt
       context.globalCompositeOperation = 'lighter'
       context.shadowBlur = 8
       context.shadowColor = '#ffb6c1'
@@ -266,24 +259,7 @@ const HeartCanvas = () => {
       context.shadowColor = 'transparent'
       context.globalCompositeOperation = 'source-over'
 
-      // Vẽ viền trái tim pulsating với màu hồng nhẹ
-      context.save()
-      context.translate(width / 2, height / 2)
-      context.scale(beat, beat)
-      context.beginPath()
-      let t2 = -Math.PI
-      let p2 = pointOnHeart(t2)
-      context.moveTo(p2.x, -p2.y)
-      while (t2 < Math.PI) {
-        t2 += 0.01
-        p2 = pointOnHeart(t2)
-        context.lineTo(p2.x, -p2.y)
-      }
-      context.closePath()
-      context.lineWidth = 3
-      context.strokeStyle = 'rgba(255,182,193,0.7)' // light pink stroke
-      context.stroke()
-      context.restore()
+      // Không còn vẽ outline trái tim nữa – chỉ giữ lại hiệu ứng đằng sau
     }
 
     render()
